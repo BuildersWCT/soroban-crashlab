@@ -1,6 +1,7 @@
+pub mod auth_matrix;
 pub mod reproducer;
-pub mod taxonomy;
 
+pub use auth_matrix::{collect_mismatched, run_matrix, AuthMode, MatrixReport, ModeResult};
 pub use reproducer::{filter_ci_pack, FlakyDetector, ReproReport};
 pub use taxonomy::{classify_failure, group_by_class, FailureClass};
 
