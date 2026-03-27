@@ -143,7 +143,7 @@ export default function CrashDetailDrawer({ run, onClose, onReplayComplete }: Cr
                     </div>
                 )}
 
-                <div className="mt-8 flex flex-wrap items-center justify-end gap-3">
+                <div className="mt-8 flex items-center justify-end gap-3">
                     <Link
                         href={`/runs/${run.id}`}
                         className="px-4 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-900 transition"

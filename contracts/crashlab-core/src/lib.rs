@@ -9,7 +9,10 @@ pub use prng::SeededPrng;
 pub use health::{
     FailureMetrics, HealthMonitor, HealthStatus, HealthSummary, QueueMetrics, ThroughputMetrics,
 };
-pub use reproducer::{FlakyDetector, ReproReport, filter_ci_pack};
+pub use reproducer::{
+    FlakyDetector, ReproReport, filter_ci_pack, shrink_bundle_payload,
+    shrink_seed_preserving_signature,
+};
 pub use taxonomy::{FailureClass, classify_failure, group_by_class};
 
 pub mod seed_validator;
@@ -17,6 +20,9 @@ pub use seed_validator::{SeedSchema, SeedValidationError, Validate};
 
 pub mod scheduler;
 pub use scheduler::{Mutator, SchedulerError, WeightedScheduler};
+
+pub mod campaign_presets;
+pub use campaign_presets::{CampaignParameters, CampaignPreset, ParseCampaignPresetError};
 pub mod replay;
 pub use replay::{ReplayResult, replay_seed_bundle};
 
@@ -57,6 +63,12 @@ pub use simulation::{
 pub mod container_stress;
 pub use container_stress::{
     generate_container_stress_grid, ContainerStressConfig, ContainerStressMutator,
+};
+
+pub mod run_control;
+pub use run_control::{
+    CancelSignal, RunId, RunSummary, RunTerminalState, cancel_marker_path, cancel_requested,
+    clear_cancel_request, default_state_dir, drive_run, request_cancel_run,
 };
 
 /// Wrapper for the legacy bit-flipper mutation logic.

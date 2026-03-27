@@ -1,48 +1,58 @@
 'use client';
 
-import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
+import { Suspense, useState, useEffect, useRef } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import RunHistoryTable from './RunHistoryTable';
 import Pagination from './Pagination';
 import CrashDetailDrawer from './CrashDetailDrawer';
 import { FuzzingRun, RunStatus } from './types';
+import CrashDetailDrawer from './CrashDetailDrawer';
 
-function buildMockRuns(): FuzzingRun[] {
-  return Array.from({ length: 25 }, (_, i) => {
-    const id = `run-${1000 + i}`;
-    const status = (['completed', 'failed', 'running', 'cancelled'][i % 4]) as RunStatus;
-    const crashDetail =
-      status === 'failed'
-        ? {
-            failureCategory: i % 8 === 1 ? 'Panic' : 'InvariantViolation',
-            signature: `sig:${1000 + i}:contract::transfer:assert_balance_nonnegative`,
-            payload: JSON.stringify(
-              {
-                contract: 'token',
-                method: 'transfer',
-                args: {
-                  from: 'GABCD...1234',
-                  to: 'GXYZ...7890',
-                  amount: 999999999,
-                },
-              },
-              null,
-              2,
-            ),
-            replayAction: `cargo run --bin crash-replay -- --run-id ${id}`,
-          }
-        : null;
-    return {
-      id,
-      status,
-      duration: 120000 + Math.random() * 3600000,
-      seedCount: Math.floor(10000 + Math.random() * 90000),
-      crashDetail,
-    };
-  }).reverse();
-}
+// Mock data for demonstration
+const MOCK_RUNS: FuzzingRun[] = Array.from({ length: 25 }, (_, i) => ({
+  id: `run-${1000 + i}`,
+  status: (['completed', 'failed', 'running', 'cancelled'][i % 4]) as RunStatus,
+  duration: 120000 + (Math.random() * 3600000), // 2m to 1h
+  seedCount: Math.floor(10000 + Math.random() * 90000),
+  cpuInstructions: Math.floor(400000 + Math.random() * 900000),
+  memoryBytes: Math.floor(1_500_000 + Math.random() * 8_000_000),
+  minResourceFee: Math.floor(500 + Math.random() * 5000),
+  crashDetail: i % 4 === 1
+    ? {
+      failureCategory: i % 8 === 1 ? 'Panic' : 'InvariantViolation',
+      signature: `sig:${1000 + i}:contract::transfer:assert_balance_nonnegative`,
+      payload: JSON.stringify({
+        contract: 'token',
+        method: 'transfer',
+        args: {
+          from: 'GABCD...1234',
+          to: 'GXYZ...7890',
+          amount: 999999999,
+        },
+      }, null, 2),
+      replayAction: `cargo run --bin crash-replay -- --run-id run-${1000 + i}`,
+    }
+    : null,
+})).reverse();
 
 const ITEMS_PER_PAGE = 10;
+const CPU_WARNING = 900_000;
+const MEMORY_WARNING = 7_000_000;
+const FEE_WARNING = 3_000;
+
+const formatBytes = (bytes: number): string => {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+};
+
+const formatFee = (fee: number): string => `${fee.toLocaleString()} stroops`;
+
+const isExpensiveRun = (run: FuzzingRun): boolean =>
+  run.cpuInstructions >= CPU_WARNING ||
+  run.memoryBytes >= MEMORY_WARNING ||
+  run.minResourceFee >= FEE_WARNING;
 
 function HomeContent() {
   const router = useRouter();
@@ -54,6 +64,7 @@ function HomeContent() {
   const [showHelp, setShowHelp] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const cardsContainerRef = useRef<HTMLDivElement>(null);
+  const selectedRunId = searchParams.get('run');
 
   const selectedRunId = searchParams.get('run');
   const selectedRun = selectedRunId ? runs.find((run) => run.id === selectedRunId) : null;
@@ -168,6 +179,22 @@ function HomeContent() {
     setShowDetailView(true);
   };
 
+  const updateSelectedRunInUrl = (runId: string | null) => {
+    const params = new URLSearchParams(searchParams.toString());
+
+    if (runId) {
+      params.set('run', runId);
+    } else {
+      params.delete('run');
+    }
+
+    const query = params.toString();
+    router.push(query ? `${pathname}?${query}` : pathname, { scroll: false });
+  };
+
+  const handleOpenRunDrawer = (runId: string) => updateSelectedRunInUrl(runId);
+  const handleCloseRunDrawer = () => updateSelectedRunInUrl(null);
+
   return (
     <div className="flex flex-col items-center justify-center py-20 px-8 max-w-5xl mx-auto w-full">
       <div className="text-center max-w-3xl mb-16">
@@ -255,6 +282,32 @@ function HomeContent() {
           <div className="px-3 py-1 bg-zinc-100 dark:bg-zinc-800 rounded-lg text-xs font-medium text-zinc-500">
             {runs.length} Total Runs
           </div>
+        </div>
+        <div className="mb-5 border border-amber-200 dark:border-amber-900/50 rounded-xl p-4 bg-amber-50/70 dark:bg-amber-950/20">
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <h3 className="text-sm font-semibold text-amber-900 dark:text-amber-200">Resource Fee Insight</h3>
+            <span className="text-xs text-amber-800 dark:text-amber-300">
+              thresholds: cpu &ge; {CPU_WARNING.toLocaleString()}, mem &ge; {formatBytes(MEMORY_WARNING)}, fee &ge; {formatFee(FEE_WARNING)}
+            </span>
+          </div>
+
+          {expensiveRuns.length === 0 ? (
+            <p className="text-sm text-zinc-600 dark:text-zinc-400">No expensive runs on this page.</p>
+          ) : (
+            <ul className="space-y-2">
+              {expensiveRuns.map((run) => (
+                <li key={run.id} className="text-sm flex flex-col md:flex-row md:items-center md:justify-between gap-2 bg-white/60 dark:bg-zinc-900/40 rounded-lg px-3 py-2 border border-amber-100 dark:border-amber-900/40">
+                  <div className="font-mono text-zinc-800 dark:text-zinc-200">{run.id}</div>
+                  <div className="text-zinc-700 dark:text-zinc-300">
+                    cpu {run.cpuInstructions.toLocaleString()} &middot; mem {formatBytes(run.memoryBytes)} &middot; min fee {formatFee(run.minResourceFee)}
+                  </div>
+                  <Link href={`/runs/${run.id}`} className="text-amber-700 dark:text-amber-300 hover:underline underline-offset-4 font-medium">
+                    View run details
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
         <RunHistoryTable runs={paginatedRuns} onSelectRun={handleOpenRunDrawer} />
         <Pagination

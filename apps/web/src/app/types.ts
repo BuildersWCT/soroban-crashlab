@@ -31,4 +31,20 @@ export interface FuzzingRun {
     seedCount: number;
     /** Crash detail payload when the run has failed */
     crashDetail: CrashDetail | null;
+    /** CPU instructions consumed by the run */
+    cpuInstructions: number;
+    /** Memory bytes consumed by the run */
+    memoryBytes: number;
+    /** Minimum resource fee measured for the run */
+    minResourceFee: number;
+}
+
+export type LedgerChangeType = 'created' | 'updated' | 'deleted';
+
+export interface LedgerStateChange {
+    id: string;
+    entryType: string;
+    changeType: LedgerChangeType;
+    before?: string;
+    after?: string;
 }
