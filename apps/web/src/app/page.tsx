@@ -14,6 +14,7 @@ import CreateRunHeatmapPage55 from './create-run-heatmap-page-55';
 import { FuzzingRun, RunStatus } from './types';
 import CrossRunBoardWidgets from './implement-cross-run-board-widgets-component';
 import RunClusterVisualization from './add-run-cluster-visualization';
+import RunClusterOverview from './add-run-cluster-overview';
 
 // Mock data for demonstration
 const MOCK_RUNS: FuzzingRun[] = Array.from({ length: 25 }, (_, i) => ({
@@ -339,6 +340,11 @@ function HomeContent() {
       {/* Run cluster visualization section */}
       <div className="w-full mb-12">
         <RunClusterVisualization runs={runs} />
+      </div>
+
+      {/* Run cluster overview section */}
+      <div className="w-full mb-12">
+        <RunClusterOverview runs={runs} />
       </div>
 
       <div className="text-center max-w-3xl mb-16">
